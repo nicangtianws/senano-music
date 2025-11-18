@@ -30,7 +30,7 @@ func GetAudioFileTypeByStr(typeStr string) (AudioFileType, error) {
 	}
 }
 
-// 根据mime类型获取音频类型
+// 根据mime类型获取音频类型，仅支持mp3、aac、ogg、wav、flac
 func GetAudioFileType(mimeType string) (AudioFileType, error) {
 	switch mimeType {
 	case "audio/ogg":

@@ -118,23 +118,23 @@ func getCover(musicFilePath *string) string {
 	return coverFilePath
 }
 
-// scan folder and parse all music files
+// 清除以前的数据并重新扫描文件夹所有歌曲
 func MusicScan(dir *string) error {
 	return DB.Transaction(func(tx *gorm.DB) error {
 		clearOldMusicInfo()
 		doMusicScan(dir)
 		return nil
 	})
-
 }
 
+// 执行扫描
 func doMusicScan(dir *string) error {
 
 	var wg sync.WaitGroup
-	// 文件处理队列
-	fileChan := make(chan string, 100)
+	// 新建等待队列
+	fileChan := make(chan string, 300)
 
-	// 工作队列
+	// 新建工作队列，大小等于cpu数量
 	numWorkers := runtime.NumCPU()
 	for range numWorkers {
 		wg.Add(1)
@@ -144,48 +144,43 @@ func doMusicScan(dir *string) error {
 			for musicPath := range fileChan {
 				absPath, err := filepath.Abs(musicPath)
 				basedir := filepath.Dir(absPath)
+				// 文件路径、文件类型校验
 				if err != nil {
-					mylog.LOG.Warn().Msg("Cant get abs path: " + err.Error())
+					mylog.LOG.Warn().Msg(fmt.Sprintf("获取文件路径失败: %s", err.Error()))
 					return
 				}
-
-				// 是否在受支持音频类型列表内
 				fileType, err := mimetype.DetectFile(absPath)
 				if err != nil {
-					mylog.LOG.Warn().Msg("Not supported file type: " + err.Error())
+					mylog.LOG.Debug().Msg(fmt.Sprintf("跳过不支持的文件类型: %s", err.Error()))
 					return
 				}
-
 				_, err = audiofileutil.GetAudioFileType(fileType.String())
-
 				if err != nil {
-					mylog.LOG.Warn().Msg("Not supported file type: " + fileType.String())
+					mylog.LOG.Debug().Msg(fmt.Sprintf("跳过不支持的文件类型: %s", fileType.String()))
 					return
 				}
 
-				// files = append(files, absPath)
-				// 根据path查找歌曲是否已经添加过
-				musicList := FindMusicByPath(&absPath)
-				if len(musicList) > 0 {
-					continue
-				}
+				// 已经添加过不再扫描
+				// musicList := FindMusicByPath(&absPath)
+				// if len(musicList) > 0 {
+				// 	continue
+				// }
 
 				MusicParse(&absPath, &basedir)
 			}
 		}()
 	}
 
-	// walk dir
+	// 开始遍历目录，放入队列
 	err := filepath.Walk(*dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-
-		// push to queue
 		if info.IsDir() {
 			return nil
 		}
 
+		// 将扫描到的文件放入队列
 		fileChan <- path
 
 		return nil
@@ -196,6 +191,8 @@ func doMusicScan(dir *string) error {
 
 	close(fileChan)
 	wg.Wait()
+
+	// TODO 更新收藏集
 
 	return nil
 }
@@ -210,6 +207,7 @@ func DeleteMusicByPath(path *string) {
 	DB.Unscoped().Where("path", path).Delete(&MusicInfo{})
 }
 
+// 清除所有历史数据
 func clearOldMusicInfo() {
 	DB.Unscoped().Where("1=1").Delete(&MusicInfo{})
 }

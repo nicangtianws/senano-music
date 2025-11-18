@@ -21,4 +21,7 @@ func InitDatabase(basedir *string) {
 	}
 
 	DB.AutoMigrate(&MusicInfo{})
+	DB.AutoMigrate(&SettingInfo{})
+
+	InitSetting(basedir)
 }

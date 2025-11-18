@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"senano-music/model"
 	"senano-music/util/mylog"
 )
@@ -19,7 +21,9 @@ func NewApp() *App {
 // startup is called when the app starts. The context is saved
 // so we can call the runtime methods
 func (a *App) Startup(ctx context.Context) {
-	basedir := "/home/swu/projects/wails-demo/senano-music/test"
+	// 生成默认为应用目录
+	home, _ := os.UserHomeDir()
+	basedir := filepath.Join(home, ".local", "senano-music")
 	model.InitDatabase(&basedir)
 	mylog.InitLog(&basedir)
 
